@@ -8,6 +8,24 @@ import imutils
 import cv2
 
 
+def showResults(correctAnswer, answer, secW, secH, imgResult):
+    for x in range(0, questions):
+        correctAnswer = correctAnswers[x]
+        answer = answers[x]
+        aX = (answer * secW) + secW//2
+        aY = (x*secH) + int(secH/1.5)
+
+        cX = (correctAnswer * secW) + secW//2
+        cY = (x * secH) + int(secH/1.5)
+        print(aX, aY)
+        if answer == correctAnswer:
+            cv2.circle(imgResult, (aX, aY), 15, (0, 255, 0), 4)
+        else:
+            cv2.circle(imgResult, (aX, aY), 15, (0, 0, 255), 4)
+            cv2.circle(imgResult, (cX, cY), 15, (255, 0, 0), 4)
+    return imgResult
+
+
 def findCorners(i):
     perimeter = cv2.arcLength(i, closed=True)
     sides = cv2.approxPolyDP(i, 0.02*perimeter, True)
@@ -23,9 +41,10 @@ questions = 15
 choices = 4
 correctAnswers = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
-image = cv2.imread("testcase2.jpg")
+image = cv2.imread("testcase/testcase2.jpg")
 image = cv2.resize(image, (width, height))
 imgContour = image.copy()
+imgFinal = image.copy()
 imgGray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1)
 edged = cv2.Canny(imgBlur, 10, 50)
@@ -139,10 +158,17 @@ for x in range(0, questions):
     cY = (x * secH) + int(secH/1.5)
     print(aX, aY)
     if answer == correctAnswer:
-        cv2.circle(imgResult, (aX, aY), 15, (0, 255, 0), 4)
+        cv2.circle(imgResult, (aX, aY), 15, (0, 255, 0), 5)
     else:
-        cv2.circle(imgResult, (aX, aY), 15, (0, 0, 255), 4)
-        cv2.circle(imgResult, (cX, cY), 15, (255, 0, 0), 4)
+        cv2.circle(imgResult, (aX, aY), 15, (0, 0, 255), 5)
+        cv2.circle(imgResult, (cX, cY), 15, (255, 0, 0), 5)
 
-cv2.imshow("", imgResult)
+test = np.zeros_like(imgWarped)
+test = showResults(correctAnswer, answer, secW, secH, test)
+invMat = cv2.getPerspectiveTransform(pt2, pt1)
+sefinal = cv2.warpPerspective(test, invMat, (width, height))
+
+imgFinal = cv2.addWeighted(imgFinal, 1, sefinal, 1, 0)
+
+cv2.imshow("",  imgFinal)
 cv2.waitKey(0)

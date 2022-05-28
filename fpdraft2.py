@@ -1,12 +1,6 @@
-
-from turtle import heading, width
-from imutils.perspective import four_point_transform
-from imutils import contours
 import numpy as np
-import PySimpleGUI as sg
-import argparse
-import imutils
 import cv2
+import PySimpleGUI as sg
 
 
 def showResults(correctAnswer, answer, secW, secH, imgResult):
@@ -171,5 +165,6 @@ sefinal = cv2.warpPerspective(test, invMat, (width, height))
 
 imgFinal = cv2.addWeighted(imgFinal, 1, sefinal, 1, 0)
 
+cv2.imwrite("output/test.png", imgFinal)
 cv2.imshow("",  imgFinal)
 cv2.waitKey(0)

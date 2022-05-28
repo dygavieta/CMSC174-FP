@@ -12,7 +12,6 @@ with answer_keys as f_in:
     answers = list(answer for answer in answers if answer)
 answer_keys.close()
 
-
 file_list_column = [
     [sg.Button("Scan", size =(40,2))],
     [sg.FolderBrowse("Open", size =(40,2),enable_events=True, key="-FOLDER-")],

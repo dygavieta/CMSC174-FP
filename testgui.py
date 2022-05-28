@@ -1,6 +1,10 @@
 import PySimpleGUI as sg
 import os.path
+import fpdraft2
 from PIL import Image 
+
+score = 0
+filename = ""
 
 answer_keys = open('answer_keys/answer_keys.txt','r')
 with answer_keys as f_in:
@@ -8,11 +12,8 @@ with answer_keys as f_in:
     answers = list(answer for answer in answers if answer)
 answer_keys.close()
 
-score = 0
-
 file_list_column = [
     [sg.Button("Scan", size =(40,2))],
-    [sg.Button("Save", size =(40,2))],   
     [sg.FolderBrowse("Open", size =(40,2),enable_events=True, key="-FOLDER-")],
     [sg.Text("Answers:")],
 ]
@@ -25,10 +26,10 @@ file_list_column +=  [
             key = "-FILE LIST-"
         )
     ],
-file_list_column +=[[sg.Text("Score: ", font=("Any 16")), sg.Text(f"{score}", font=("Any 16"))]]
+file_list_column +=[[sg.Text("Score: ", font=("Any 16")), sg.Text(f"{score}", font=("Any 16"), key="-SCORE-")]]
 
 image_viewer_column = [
-    [sg.Text("Choose an image from the list" )],
+    [sg.Text("Choose an image from the list")],
     [sg.Text(size=(40,1), key="-TOUT-")],
     [sg.Image(key="-IMAGE-")],
 ]
@@ -47,11 +48,6 @@ while True:
     event, values = window.read()
     if event == "Exit" or event == sg.WIN_CLOSED:
         break
-    if event == "Scan":
-        print("Scanning...")
-    if event == "Save":
-        print("Saving...")
-        sg.popup('Saved!', title="Saved image")
     if event == "-FOLDER-":
         folder = values["-FOLDER-"]
         try:
@@ -71,12 +67,16 @@ while True:
             filename = os.path.join(
                 values["-FOLDER-"], values["-FILE LIST-"][0]
             )
-            print(filename)
             window["-TOUT-"].update(filename)
             window["-IMAGE-"].update(filename=filename)
         except:
             pass
-
-
+    if event == "Scan":
+        print("Scanning...")
+        correctScore,output_dir = fpdraft2.scan(filename, values["-FILE LIST-"][0])
+        print(correctScore)
+        window["-TOUT-"].update(output_dir)
+        window["-IMAGE-"].update(filename=(output_dir))
+        window["-SCORE-"].update(f"{correctScore}/15")
 
 window.close()

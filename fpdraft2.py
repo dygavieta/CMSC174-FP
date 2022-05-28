@@ -3,9 +3,12 @@ import cv2
 # Show results , correct asnswers, your answers
 
 
+# Show results of the answer sheet: multiple choice
 def showResults(correctAnswer, answer, secW, secH, imgResult):
+    # aX aY : x and y coord of the user answers
+    # cX cY : x and y coord of the correct answers
     for x in range(0, questions):
-        # +1 direct to the choices
+        #  index 1 -> to the choices ; index 0 -> numbers
         checkX = 25
         correctAnswer = correctAnswers[x] + 1
         answer = answers[x] + 1
@@ -15,18 +18,23 @@ def showResults(correctAnswer, answer, secW, secH, imgResult):
         cY = (x * secH) + int(secH/1.5)
         if answer == correctAnswer:
             cv2.circle(imgResult, (aX, aY), 15, (0, 255, 0), 4)
+            # Draw check mark on the number with correct answer
             cv2.line(imgResult, (checkX+5, aY+10),
                      (checkX+15, aY-10), (0, 255, 0), 3)
         else:
+            # For wrong shaded answers (with one shade only)
             if answer != 0:
                 cv2.circle(imgResult, (aX, aY), 15, (0, 0, 255), 4)
+            # Draw x mark on the number with wrong answer
             cv2.line(imgResult, (checkX+5, aY+10),
                      (checkX+15, aY-10), (0, 0, 255), 3)
             cv2.line(imgResult, (checkX, aY-10),
                      (checkX+20, aY+5), (0, 0, 255), 3)
-            # Correct Answer
+            # Shows correct answer
             cv2.circle(imgResult, (cX, cY), 15, (255, 0, 0), 4)
     return imgResult
+
+# Find the corners of the contour rectangle/square
 
 
 def findCorners(i):
@@ -34,43 +42,49 @@ def findCorners(i):
     sides = cv2.approxPolyDP(i, 0.02*perimeter, True)
     return(sides)
 
+# Furnishing the points and appearance of the poly
+
 
 def reOrderContour(rectContour):
+    rectContour = rectContour.reshape((4, 2))
+    add = rectContour.sum(1)
     newbigContour = np.zeros((4, 1, 2), np.int32)
-    # Re-ordering bigContour
+    # Re-ordering points
     newbigContour[0] = rectContour[np.argmin(add)]  # [0,0]
     newbigContour[3] = rectContour[np.argmax(add)]  # [w, h]
-    newbigContour[1] = rectContour[np.argmin(diff)]  # [w,0]
+    diff = np.diff(rectContour, axis=1)
+    newbigContour[1] = rectContour[np.argmin(diff)]  # [w,0]\
     newbigContour[2] = rectContour[np.argmax(diff)]  # [0,h]
-    # load the image, convert it to grayscale, blur it
-    # slightly, then find edges
     return newbigContour
 
 
+# File attributes
 width = 400
 height = 911
 questions = 15
 choices = 4
-correctAnswers = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
-image = cv2.imread("testcase/t1.png")
+# List of correct answers
+choice = {'a': 0, 'b': 1, 'c': 2, 'd': 3}
+f = open("answer_keys/answer_keys.txt", "r")
+correctAnswers = [choice.get(x.strip()) for x in f.readlines()]
+
+# Reading of file
+image = cv2.imread("testcase/t6.png")
 image = cv2.resize(image, (width, height))
 imgContour = image.copy()
 imgFinal = image.copy()
 imgGray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1)
 edged = cv2.Canny(imgBlur, 10, 50)
-
 contours, hierarchy = cv2.findContours(
     edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-# draw contours  (-1 : all contours ) color, thickness
-cv2.drawContours(imgContour, contours, -1, (0, 255, 0), 5)
-
+# Looking for rectangular contours
 rectContours = []
-
 for i in contours:
     area = cv2.contourArea(i)
+    # Threshold
     if area > 50:
         # Look for possible rectangles
         perimeter = cv2.arcLength(i, closed=True)
@@ -82,11 +96,10 @@ for i in contours:
 rectContours = sorted(rectContours, key=cv2.contourArea, reverse=True)
 
 # Finding and reshaping corner points
-mcCounter = findCorners(rectContours[0])
-mcCounter = mcCounter.reshape((4, 2))
-diff = np.diff(mcCounter, axis=1)
-add = mcCounter.sum(1)
-newMCContour = reOrderContour(mcCounter)
+mcContour = findCorners(rectContours[0])
+
+newMCContour = reOrderContour(mcContour)
+
 
 # ========= MULTIPLE CHOICE SHEET ===========
 # Size for multiple choice sheet
@@ -100,7 +113,6 @@ imgWarped = cv2.warpPerspective(image, mat, (width2, height2))
 imgWarpedGray = cv2.cvtColor(imgWarped, cv2.COLOR_BGR2GRAY)
 # THRESHOLDIMG
 thresh = cv2.threshold(imgWarpedGray, 220, 250, cv2.THRESH_BINARY_INV)[1]
-
 
 # SplitBoxes
 rows = np.vsplit(thresh, 15)
@@ -121,6 +133,8 @@ pixelVal = np.zeros((questions, choices))
 countCol = 0
 countRow = 0
 for img in boxes:
+
+    cv2.waitKey(0)
     totalPixels = cv2.countNonZero(img)
     pixelVal[countRow][countCol] = totalPixels
     countCol += 1
@@ -130,6 +144,7 @@ for img in boxes:
         countCol = 0
 
 # Compiling answers
+print(pixelVal)
 answers = []
 for x in range(0, questions):
     numberShades = 0
@@ -138,10 +153,10 @@ for x in range(0, questions):
     answer = np.where(tmp_array == np.amax(tmp_array))
 
     # Thresholds
-    if int(np.amax(tmp_array)) > 750:
+    if int(np.amax(tmp_array)) > 800:
         # checks if there are 2 or more shades
         for choice in tmp_array:
-            if choice > 750:
+            if choice > 800:
                 numberShades += 1
 
         if numberShades > 1:
@@ -161,7 +176,6 @@ correctScore = 0
 for check in checks:
     if check == True:
         correctScore += 1
-
 
 # ========= SCORE SHEET ===========
 scoreContour = findCorners(rectContours[1])
@@ -183,7 +197,6 @@ cv2.putText(imgRawScore, str(int(correctScore)) + "/15",
 invMat2 = cv2.getPerspectiveTransform(pt1_2, pt1_1)
 imgInvScore = cv2.warpPerspective(imgRawScore, invMat2, (width, height))
 
-
 # SHOW ANSWERS /Checking Answers
 imgResult = imgWarped.copy()
 # First Phase
@@ -200,6 +213,6 @@ sefinal = cv2.warpPerspective(revertImg, invMat, (width, height))
 imgFinal = cv2.addWeighted(sefinal, 1.3, imgFinal, .7, 0)
 imgFinal = cv2.addWeighted(imgInvScore, 1.3, imgFinal, .7, 0)
 
-cv2.imwrite("output/test.png", imgFinal)
+# cv2.imwrite("output/test.png", imgFinal)
 cv2.imshow("",  imgFinal)
 cv2.waitKey(0)

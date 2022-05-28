@@ -3,7 +3,7 @@ import os.path
 import fpdraft2 as gwapo
 from PIL import Image
 
-answer_keys = open('../answer_keys/answer_keys.txt', 'r')
+answer_keys = open('answer_keys/answer_keys.txt', 'r')
 with answer_keys as f_in:
     answers = (answer.rstrip() for answer in f_in)
     answers = list(answer for answer in answers if answer)
@@ -52,7 +52,7 @@ while True:
     if event == "Exit" or event == sg.WIN_CLOSED:
         break
     if event == "Scan":
-
+        gwapo.scan()
         print("Scanning...")
     if event == "Save":
         print("Saving...")

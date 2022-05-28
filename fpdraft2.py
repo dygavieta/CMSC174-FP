@@ -1,9 +1,5 @@
-
-from unicodedata import numeric
 import numpy as np
-# import PySimpleGUI as sg
 import cv2
-
 # Show results , correct asnswers, your answers
 
 
@@ -204,5 +200,6 @@ sefinal = cv2.warpPerspective(revertImg, invMat, (width, height))
 imgFinal = cv2.addWeighted(sefinal, 1.3, imgFinal, .7, 0)
 imgFinal = cv2.addWeighted(imgInvScore, 1.3, imgFinal, .7, 0)
 
+cv2.imwrite("output/test.png", imgFinal)
 cv2.imshow("",  imgFinal)
 cv2.waitKey(0)

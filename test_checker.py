@@ -2,8 +2,10 @@ import numpy as np
 import cv2
 
 
-def scan():
-    # Show results of the answer sheet: multiple choice
+def scan(filename, output_name):
+   # def scan(filename, output_name):
+   # Show results of the answer sheet: multiple choice
+
     def showResults(correctAnswer, answer, secW, secH, imgResult):
         # aX aY : x and y coord of the user answers
         # cX cY : x and y coord of the correct answers
@@ -52,33 +54,34 @@ def scan():
         newbigContour[3] = rectContour[np.argmax(add)]  # [w, h]
         diff = np.diff(rectContour, axis=1)
         newbigContour[1] = rectContour[np.argmin(diff)]  # [w,0]\
+
         newbigContour[2] = rectContour[np.argmax(diff)]  # [0,h]
         return newbigContour
 
-    # File attributes
-    width = 700
-    height = 911
+    # List of correct answers
     questions = 15
     choices = 4
-
-    # List of correct answers
     choice = {'a': 0, 'b': 1, 'c': 2, 'd': 3}
-    f = open("answer_keys/answer_keys.txt", "r")
+    test = filename.split('.')
+    f = open("answer_keys/" + test[0] + ".txt", "r")
     correctAnswers = [choice.get(x.strip()) for x in f.readlines()]
 
-    # Reading of file
-    image = cv2.imread("testcase/t7.jpg")
-    image = cv2.resize(image, (width, height))
+    # Reading Files
+    image = cv2.imread("testcase/" + test[0] + ".png")
     imgFinal = image.copy()
+    # File attributes
+    width, height = image.shape[::-1][1::]
+
     imgGray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1)
-    edged = cv2.Canny(imgBlur, 10, 50)
+    imgBlur = cv2.GaussianBlur(imgGray, (3, 3), 1)
+    edged = cv2.Canny(imgBlur, 1, 50)
     contours, hierarchy = cv2.findContours(
         edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     # Looking for rectangular contours
-    rectContours = []
+    rectangles = []
     for i in contours:
+
         area = cv2.contourArea(i)
         # Threshold
         if area > 50:
@@ -86,18 +89,17 @@ def scan():
             perimeter = cv2.arcLength(i, closed=True)
             sides = cv2.approxPolyDP(i, 0.02*perimeter, True)
             if len(sides) == 4:
-                rectContours.append(i)
+                rectangles.append(i)
 
     # Sort rectangle Contours descending
-    rectContours = sorted(rectContours, key=cv2.contourArea, reverse=True)
+    rectangles = sorted(rectangles, key=cv2.contourArea, reverse=True)
 
     # Finding and reshaping corner points
-    mcContour = findCorners(rectContours[0])
-    cv2.drawContours(image, mcContour, -1, (0, 255, 0), 3)
+    mcContour = findCorners(rectangles[0])
     newMCContour = reOrderContour(mcContour)
 
-    # ========= MULTIPLE CHOICE SHEET ===========
-    # Size for multiple choice sheet
+    # ========= BUBBLE ANSWER SHEET ===========
+    # Sizing
     width2 = 255
     height2 = 825
     # Viewing the rectangle of multiple choice sheet and score using perspective
@@ -106,7 +108,7 @@ def scan():
     mat = cv2.getPerspectiveTransform(pt1, pt2)
     imgWarped = cv2.warpPerspective(image, mat, (width2, height2))
     imgWarpedGray = cv2.cvtColor(imgWarped, cv2.COLOR_BGR2GRAY)
-    # THRESHOLDIMG
+    # THRESHOLDING
     thresh = cv2.threshold(imgWarpedGray, 220, 250, cv2.THRESH_BINARY_INV)[1]
 
     # SplitBoxes
@@ -117,6 +119,8 @@ def scan():
     for r in rows:
         cols = np.hsplit(r, 5)
         for box in cols:
+            # cropping choice img for focus
+            box = box[15:box.shape[0], 5: box.shape[1]]
             if(count % 5 == 0):
                 numbers.append(box)
             else:
@@ -144,12 +148,15 @@ def scan():
         tmp_array = pixelVal[x]
         # getting and storing the max pixels in the array
         answer = np.where(tmp_array == np.amax(tmp_array))
+        maxPixel = int(np.amax(tmp_array))
 
         # Thresholds
-        if int(np.amax(tmp_array)) > 800:
+        # Accepted If > 1000 overshaded < 750 partially shaded
+        if (maxPixel > 700 and maxPixel < 1000):
             # checks if there are 2 or more shades
             for choice in tmp_array:
-                if choice > 800:
+                # double shaded (partially and fully considered)
+                if choice > 470:
                     numberShades += 1
             if numberShades > 1:
                 answers.append(-1)
@@ -158,19 +165,19 @@ def scan():
         # If there is no answer or shade
         else:
             answers.append(-1)
-            # compare finalAsnswer to the correct answers
 
+    # compare finalAsnswer to the correct answers
     finalAnswers = np.array(answers)
     correctAnswers = np.array(correctAnswers)
     checks = np.equal(finalAnswers, correctAnswers)
 
-    totaScore = 0
+    totalScore = 0
     for check in checks:
         if check == True:
-            totaScore += 1
+            totalScore += 1
 
     # ========= SCORE SHEET ===========
-    scoreContour = findCorners(rectContours[1])
+    scoreContour = findCorners(rectangles[1])
     newScoreContour = reOrderContour(scoreContour)
     # Size for multiple choice sheet
     width3 = 600
@@ -180,16 +187,19 @@ def scan():
     pt1_2 = np.float32([[0, 0], [width3, 0], [0, height3], [width3, height3]])
     imgWarpedScore = cv2.warpPerspective(image, mat, (width3, height3))
 
-    # # SHOW SCORE
+    #  SHOW SCORE
     imgRawScore = np.zeros_like(imgWarpedScore)
     font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(imgRawScore, str(int(totaScore)) + "/15",
+    cv2.putText(imgRawScore, str(int(totalScore)) + "/15",
                 (width3//2, height3//2), font, 3,
-                (0, 255, 0) if totaScore >= 8 else (0, 255, 255), 3)
+                (0, 255, 0) if totalScore >= 10 else (0, 255, 255) if totalScore >= 6 else (0, 0, 255), 10)
     invMat2 = cv2.getPerspectiveTransform(pt1_2, pt1_1)
     imgInvScore = cv2.warpPerspective(imgRawScore, invMat2, (width, height))
 
-    # SHOW ANSWERS /Checking Answers
+    # ================================
+
+    # SHOW ANSWERS
+    # Checking Answers
     imgResult = imgWarped.copy()
     # First Phase
     secW = int(imgResult.shape[1]/5)
@@ -199,14 +209,16 @@ def scan():
     # Second Phase: Reverting back
     revertImg = np.zeros_like(imgWarped)
     revertImg = showResults(correctAnswer, answer, secW, secH, revertImg)
+
     invMat = cv2.getPerspectiveTransform(pt2, pt1)
     sefinal = cv2.warpPerspective(revertImg, invMat, (width, height))
+
     imgFinal = cv2.addWeighted(sefinal, 1.3, imgFinal, .7, 0)
     imgFinal = cv2.addWeighted(imgInvScore, 1.3, imgFinal, .7, 0)
+    # output_dir = "output/"+output_name
+    # cv2.imwrite(output_dir, imgFinal)
+    # # return totalScore, output_dir
 
-    # cv2.imwrite("output/test.png", imgFinal)
-    cv2.imshow("",  imgFinal)
-    cv2.waitKey(0)
-
-
-scan()
+    output_dir = "output/"+output_name
+    cv2.imwrite(output_dir, cv2.resize(imgFinal, (600, 900)))
+    return totalScore, output_dir
